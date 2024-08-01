@@ -1,0 +1,679 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Insider</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/eclipse.min.css">
+    <style>
+        /* Button to toggle sidebar on mobile */
+#toggle-sidebar-button {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 10px;
+    background-color: #007bff;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+#sidebar.closed {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.3s;
+}
+
+#content.expanded {
+    margin-left: 0;
+    width: 100%;
+}
+
+#close-sidebar-button {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 10px;
+    background-color: #ff4d4d;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    #toggle-sidebar-button {
+        display: block; /* Show toggle button on mobile */
+    }
+    #sidebar {
+        width: 250px;
+    }
+    #content {
+        margin-left: 0;
+        width: 100%;
+    }
+    #sidebar.closed #close-sidebar-button {
+        display: none; /* Hide close button when sidebar is closed */
+    }
+    #sidebar:not(.closed) #close-sidebar-button {
+        display: block; /* Show close button when sidebar is open */
+    }
+    #sidebar:not(.closed) {
+        width: 250px;
+    }
+}
+
+        body {
+            display: flex;
+            flex-direction: row;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scrollbar */
+            background-color: #ffffff; /* Light mode background */
+            color: #000000; /* Light mode text color */
+            transition: background-color 0.3s, color 0.3s; /* Smooth transition */
+        }
+        body.dark-mode {
+            background-color: #1e1e1e; /* Dark mode background */
+            color: #ffffff; /* Dark mode text color */
+        }
+        #sidebar.dark-mode {
+            background-color: #333;
+            color: white;
+        }
+        #sidebar {
+            width: 255px;
+            background-color: transparent;
+            border-right: 1px solid #ddd;
+            margin-left: 5px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s; /* Smooth transition */
+            margin-right: 5px;
+
+        }
+        
+        #sidebar-content {
+            padding: 20px;
+        }
+        #toggle-dark-mode {
+            margin-top: 10px;
+            cursor: pointer;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: transparent;
+            color: #796bff;
+            transition: background-color 0.55s ease;
+            font-size: medium;
+        }
+        #toggle-dark-mode:hover {
+text-decoration: underline;
+        }
+        .CodeMirror {
+            width: calc(100% - 270px);
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        iframe {
+            width: calc(100% - 270px);
+            height: 300px;
+            border: 1px solid #ccc;
+            background-color: rgb(255, 255, 255);
+        }
+        #content {
+            margin-left: 270px;
+            flex: 1;
+        }
+        #file-operations button, #file-operations input {
+            margin-top: 10px;
+            cursor: pointer;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+        #js-variables {
+            margin-top: 20px;
+        }
+        /* File List Container */
+#file-list {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: transparent;
+    color: rgb(0, 102, 255);
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+button {
+    background-color: rgba(56, 38, 251, 0.593);
+    color: rgb(255, 255, 255);
+    transition: background-color 0.55s ease;
+    
+}
+button:hover {
+    background-color: rgb(0, 93, 164);
+}
+
+select {
+    background-color: #ffffffa5;
+    border-radius: 3px;
+    font-size: 15px;
+}
+/* File List */
+#file-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* File List Items */
+#file-list li {
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Hover Effect */
+#file-list li:hover {
+    background-color: #007bff;
+    color: #ffffff;
+}
+
+/* Active File Style */
+#file-list li.active {
+    background-color: #0056b3;
+    color: #ffffff;
+}
+#preview.hidden {
+    display: none;
+}
+
+    </style>
+</head>
+<body>
+   <div id="sidebar">
+            <h2>File List</h2>
+    <div id="file-list">
+        <ul id="file-list-ul">
+            <!-- List items for files will be dynamically added here -->
+        </ul>
+    </div>
+    <!-- Existing content -->
+            <h2>Theme Selector</h2>
+            <select id="theme-selector">
+                <option value="default">Default</option>
+                <option value="dracula">Dracula</option>
+                <option value="monokai">Monokai</option>
+                <option value="eclipse">Eclipse</option>
+            </select>
+            <button id="toggle-dark-mode">Toggle Dark Mode</button>
+            <div id="file-operations">
+                <h2>Open File</h2>
+                <!-- Replace this -->
+<input type="file" id="file-input">
+<button id="download-button">Download HTML</button>
+                <button id="new-file-button">Create New File</button>
+                
+                
+
+            </div>
+            <div id="js-variables">
+                
+            </div>
+        </div>
+    </div>
+    <div id="content">
+        <h1>Javascript Insider</h1>
+        <textarea id="code-input">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body { font-family: Arial; }
+    </style>
+</head>
+<body>
+    <h1>Hello, World!</h1>
+    <script>
+        console.log('Hello, World!');
+    </script>
+</body>
+</html>
+        </textarea>
+        <iframe id="preview" srcdoc=""></iframe>
+
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script>
+        var editor = CodeMirror.fromTextArea(document.getElementById('code-input'), {
+            mode: 'htmlmixed',
+            theme: 'default',  // Set the default theme
+            lineNumbers: true,
+            lineWrapping: true
+        });
+
+        editor.on('change', function() {
+            var code = editor.getValue();
+            document.getElementById('preview').srcdoc = code;
+        });
+
+        // Set initial content in iframe
+        document.getElementById('preview').srcdoc = editor.getValue();
+
+        // Handle theme change
+        document.getElementById('theme-selector').addEventListener('change', function() {
+            var theme = this.value;
+            editor.setOption('theme', theme);
+        });
+
+        // Toggle dark mode
+        document.getElementById('toggle-dark-mode').addEventListener('click', function() {
+            document.body.classList.toggle('dark-mode');
+        });
+
+        // Download HTML file
+        document.getElementById('download-button').addEventListener('click', function() {
+            var code = editor.getValue();
+            var blob = new Blob([code], { type: 'text/html' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'document.html';
+            link.click();
+        });
+
+        // Create a new file
+        document.getElementById('new-file-button').addEventListener('click', function() {
+            editor.setValue('<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>New Document</title>\n    <style>\n        body { font-family: Arial; }\n    </style>\n</head>\n<body>\n    <h1>New Document</h1>\n</body>\n</html>');
+        });
+
+        // Open a file
+        document.getElementById('file-input').addEventListener('change', function(event) {
+            var file = event.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    editor.setValue(e.target.result);
+                    document.getElementById('preview').srcdoc = e.target.result;
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Display JavaScript variables
+        function displayJavaScriptVariables() {
+            var variables = [];
+            try {
+                // Check for variables in the global scope
+                for (var key in window) {
+                    if (window.hasOwnProperty(key)) {
+                        variables.push(key + ': ' + window[key]);
+                    }
+                }
+                document.getElementById('variables-list').innerHTML = variables.join('<br>');
+            } catch (e) {
+                console.error('Error displaying JavaScript variables:', e);
+            }
+        }
+
+        // Update variables display on editor change
+        editor.on('change', function() {
+            displayJavaScriptVariables();
+        });
+
+        // Initial display of JavaScript variables
+        displayJavaScriptVariables();
+        // JavaScript Variables to Store File Data
+var files = {};
+var currentFile = '';
+
+// Handle file selection
+function handleFileSelect(event) {
+    var file = event.target.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Save content to the current file
+            if (currentFile) {
+                files[currentFile] = editor.getValue();
+            }
+            // Load new content
+            currentFile = file.name;
+            files[currentFile] = e.target.result;
+            editor.setValue(files[currentFile]);
+            document.getElementById('preview').srcdoc = files[currentFile];
+            updateFileList();
+        };
+        reader.readAsText(file);
+    }
+}
+
+// Handle file download
+document.getElementById('download-button').addEventListener('click', function() {
+    if (currentFile) {
+        var code = editor.getValue();
+        files[currentFile] = code;
+        var blob = new Blob([code], { type: 'text/html' });
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = currentFile;
+        link.click();
+    }
+});
+
+// Create a new file
+
+
+// Open a file from the file list
+document.getElementById('file-list-ul').addEventListener('click', function(event) {
+    var fileName = event.target.getAttribute('data-file');
+    if (fileName) {
+        if (currentFile) {
+            files[currentFile] = editor.getValue();
+        }
+        currentFile = fileName;
+        editor.setValue(files[currentFile] || '');
+        document.getElementById('preview').srcdoc = files[currentFile] || '';
+    }
+});
+
+// Update the file list in the sidebar
+function updateFileList() {
+    var fileListUl = document.getElementById('file-list-ul');
+    fileListUl.innerHTML = '';
+    for (var fileName in files) {
+        var li = document.createElement('li');
+        li.textContent = fileName;
+        li.setAttribute('data-file', fileName);
+        fileListUl.appendChild(li);
+    }
+}
+
+// Initialize file list and editor
+updateFileList();
+
+// Handle file input change
+document.getElementById('file-input').addEventListener('change', handleFileSelect);
+// JavaScript Variables to Store File Data
+var files = {};
+var currentFile = '';
+
+// Handle file selection from file input
+document.getElementById('file-input').addEventListener('change', function(event) {
+    var file = event.target.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Save content to the current file
+            if (currentFile) {
+                files[currentFile] = editor.getValue();
+            }
+            // Load new content
+            currentFile = file.name;
+            files[currentFile] = e.target.result;
+            editor.setValue(files[currentFile]);
+            document.getElementById('preview').srcdoc = files[currentFile];
+            updateFileList();
+        };
+        reader.readAsText(file);
+    }
+});
+
+// Handle file download
+document.getElementById('download-button').addEventListener('click', function() {
+    if (currentFile) {
+        var code = editor.getValue();
+        files[currentFile] = code;
+        var blob = new Blob([code], { type: 'text/html' });
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = currentFile;
+        link.click();
+    }
+});
+
+// Create a new file
+document.getElementById('new-file-button').addEventListener('click', function() {
+    if (currentFile) {
+        files[currentFile] = editor.getValue();
+    }
+    var newFileName = prompt('Enter new file name:', 'Untitled.html');
+    if (newFileName) {
+        currentFile = newFileName;
+        files[currentFile] = '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>New Document</title>\n    <style>\n        body { font-family: Arial; }\n    </style>\n</head>\n<body>\n    <h1>New Document</h1>\n</body>\n</html>';
+        editor.setValue(files[currentFile]);
+        document.getElementById('preview').srcdoc = files[currentFile];
+        updateFileList();
+    }
+});
+
+// Open a file from the file list
+document.getElementById('file-list-ul').addEventListener('click', function(event) {
+    var fileName = event.target.getAttribute('data-file');
+    if (fileName) {
+        if (currentFile) {
+            files[currentFile] = editor.getValue();
+        }
+        currentFile = fileName;
+        editor.setValue(files[currentFile] || '');
+        document.getElementById('preview').srcdoc = files[currentFile] || '';
+    }
+});
+
+// Update the file list in the sidebar
+function updateFileList() {
+    var fileListUl = document.getElementById('file-list-ul');
+    fileListUl.innerHTML = '';
+    for (var fileName in files) {
+        var li = document.createElement('li');
+        li.textContent = fileName;
+        li.setAttribute('data-file', fileName);
+        li.style.cursor = 'pointer';  // Make the list item clickable
+        li.style.padding = '5px';
+        li.style.marginBottom = '5px';
+        li.style.border = '1px solid #ddd';
+        fileListUl.appendChild(li);
+    }
+}
+
+// Initialize file list and editor
+updateFileList();
+// Open a file from the file list
+document.getElementById('file-list-ul').addEventListener('click', function(event) {
+    var fileName = event.target.getAttribute('data-file');
+    if (fileName) {
+        if (currentFile) {
+            files[currentFile] = editor.getValue();
+        }
+        currentFile = fileName;
+        editor.setValue(files[currentFile] || '');
+        document.getElementById('preview').srcdoc = files[currentFile] || '';
+
+        // Update file list styling
+        updateFileList();
+    }
+});
+
+// Update the file list in the sidebar
+function updateFileList() {
+    var fileListUl = document.getElementById('file-list-ul');
+    fileListUl.innerHTML = '';
+    for (var fileName in files) {
+        var li = document.createElement('li');
+        li.textContent = fileName;
+        li.setAttribute('data-file', fileName);
+        li.style.cursor = 'pointer';  // Ensure all list items are clickable
+        li.style.padding = '10px';
+        li.style.marginBottom = '5px';
+        li.style.borderRadius = '4px';
+        li.style.transition = 'background-color 0.3s, color 0.3s';  // Smooth transition
+        if (fileName === currentFile) {
+            li.classList.add('active');  // Highlight the currently active file
+        }
+        fileListUl.appendChild(li);
+    }
+}
+// Handle file selection with button click
+document.getElementById('select-file-button').addEventListener('click', function() {
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';  // Hide the file input
+    fileInput.addEventListener('change', function(event) {
+        var file = event.target.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                // Save content to the current file
+                if (currentFile) {
+                    files[currentFile] = editor.getValue();
+                }
+                // Load new content
+                currentFile = file.name;
+                files[currentFile] = e.target.result;
+                editor.setValue(files[currentFile]);
+                document.getElementById('preview').srcdoc = files[currentFile];
+                updateFileList();
+            };
+            reader.readAsText(file);
+        }
+    });
+    fileInput.click();  // Trigger the file input click
+});
+
+// Initialize file list and editor
+updateFileList();
+// JavaScript Variables to Store File Data
+var files = {};
+var currentFile = '';
+
+// Handle file selection with button click
+document.getElementById('select-file-button').addEventListener('click', function() {
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';  // Hide the file input
+    fileInput.addEventListener('change', function(event) {
+        var file = event.target.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                // Save content to the current file
+                if (currentFile) {
+                    files[currentFile] = editor.getValue();
+                }
+                // Load new content
+                currentFile = file.name;
+                files[currentFile] = e.target.result;
+                editor.setValue(files[currentFile]);
+                document.getElementById('preview').srcdoc = files[currentFile];
+                updateFileList();
+            };
+            reader.readAsText(file);
+        }
+    });
+    fileInput.click();  // Trigger the file input click
+});
+
+// Handle file download
+document.getElementById('download-button').addEventListener('click', function() {
+    if (currentFile) {
+        var code = editor.getValue();
+        files[currentFile] = code;
+        var blob = new Blob([code], { type: 'text/html' });
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = currentFile;
+        link.click();
+    }
+});
+
+// Create a new file
+document.getElementById('new-file-button').addEventListener('click', function() {
+    if (currentFile) {
+        files[currentFile] = editor.getValue();
+    }
+    var newFileName = prompt('Enter new file name:', 'Untitled.html');
+    if (newFileName) {
+        currentFile = newFileName;
+        files[currentFile] = '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>New Document</title>\n    <style>\n        body { font-family: Arial; }\n    </style>\n</head>\n<body>\n    <h1>New Document</h1>\n</body>\n</html>';
+        editor.setValue(files[currentFile]);
+        document.getElementById('preview').srcdoc = files[currentFile];
+        updateFileList();
+    }
+});
+
+// Open a file from the file list
+document.getElementById('file-list-ul').addEventListener('click', function(event) {
+    var fileName = event.target.getAttribute('data-file');
+    if (fileName) {
+        if (currentFile) {
+            files[currentFile] = editor.getValue();
+        }
+        currentFile = fileName;
+        editor.setValue(files[currentFile] || '');
+        document.getElementById('preview').srcdoc = files[currentFile] || '';
+        updateFileList(); // Ensure the active file is highlighted
+    }
+});
+
+// Update the file list in the sidebar
+function updateFileList() {
+    var fileListUl = document.getElementById('file-list-ul');
+    fileListUl.innerHTML = '';
+    for (var fileName in files) {
+        var li = document.createElement('li');
+        li.textContent = fileName;
+        li.setAttribute('data-file', fileName);
+        li.style.cursor = 'pointer';  // Ensure all list items are clickable
+        li.style.padding = '10px';
+        li.style.marginBottom = '5px';
+        li.style.borderRadius = '4px';
+        li.style.transition = 'background-color 0.3s, color 0.3s';  // Smooth transition
+        if (fileName === currentFile) {
+            li.classList.add('active');  // Highlight the currently active file
+        } else {
+            li.classList.remove('active');
+        }
+        fileListUl.appendChild(li);
+    }
+}
+
+// Initialize file list and editor
+updateFileList();
+// Handle sidebar toggle on mobile
+document.getElementById('toggle-sidebar-button').addEventListener('click', function() {
+    var sidebar = document.getElementById('sidebar');
+    var content = document.getElementById('content');
+    if (sidebar.classList.contains('closed')) {
+        sidebar.classList.remove('closed');
+        content.classList.add('expanded');
+    } else {
+        sidebar.classList.add('closed');
+        content.classList.remove('expanded');
+    }
+});
+
+// Handle sidebar close button
+
+
+    </script>
+</body>
+</html>
